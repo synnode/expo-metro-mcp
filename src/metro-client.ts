@@ -9,9 +9,8 @@ const POLL_INTERVAL_MS = 2_000;
 const MAX_BACKOFF_MS = 30_000;
 const INITIAL_BACKOFF_MS = 1_000;
 
-// If CDP disconnects within this many ms of connecting, assume DevTools kicked us out
+// If CDP disconnects within this many ms of connecting, treat it as a conflict (DevTools kicked us out)
 const DEVTOOLS_CONFLICT_THRESHOLD_MS = 5_000;
-const DEVTOOLS_BACKOFF_MS = 30_000;
 
 export type LogLevel = "error" | "warn" | "info" | "log" | "debug";
 
@@ -97,7 +96,7 @@ class MetroClient {
   private _stopped = false;
   private _eventsBackoff = INITIAL_BACKOFF_MS;
   private _deviceTitle: string | null = null;
-  private _cdpBackoffUntil = 0; // unix ms — don't reconnect CDP before this time
+  private _cdpSuspended = false; // true after a DevTools conflict — wait for explicit connect()
 
   readonly host = METRO_HOST;
   readonly port = METRO_PORT;
@@ -169,6 +168,17 @@ class MetroClient {
     return count;
   }
 
+  async grabConnection(): Promise<string> {
+    this._cdpSuspended = false;
+    await this.checkForNewTarget();
+    // Give the WebSocket a moment to open
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    if (this._connected) {
+      return `Connected to ${this._deviceTitle ?? "device"}.`;
+    }
+    return "No device found. Is Metro running with a connected device?";
+  }
+
   private addEntry(entry: LogEntry) {
     this._totalReceived++;
     this.buffer.push(entry);
@@ -204,8 +214,7 @@ class MetroClient {
       return; // Already connected to this target
     }
 
-    // Respect backoff from a DevTools conflict
-    if (Date.now() < this._cdpBackoffUntil) {
+    if (this._cdpSuspended) {
       return;
     }
 
@@ -256,12 +265,12 @@ class MetroClient {
         this._currentTargetId = null;
         this._deviceTitle = null;
 
-        // If we were disconnected very quickly after connecting, DevTools likely kicked us out.
-        // Back off to avoid fighting for the connection.
         const aliveMs = connectedAt > 0 ? Date.now() - connectedAt : Infinity;
         if (aliveMs < DEVTOOLS_CONFLICT_THRESHOLD_MS) {
-          this._cdpBackoffUntil = Date.now() + DEVTOOLS_BACKOFF_MS;
+          // Kicked out quickly — likely DevTools. Wait for explicit connect().
+          this._cdpSuspended = true;
         }
+        // Clean disconnect (Metro restart etc.) → _cdpSuspended stays false → auto-reconnect
       }
     });
 

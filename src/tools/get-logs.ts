@@ -1,21 +1,19 @@
 import { z } from "zod";
 import { metroClient, LogLevel } from "../metro-client.js";
+import { cleanMessage, formatTime } from "./format.js";
 
 export const GetLogsSchema = z.object({
-  lines: z.number().int().min(1).max(500).optional().default(50),
-  level: z.enum(["error", "warn", "info", "log"]).optional(),
+  lines: z.coerce.number().int().min(1).max(500).optional().default(50),
+  level: z.enum(["error", "warn", "info", "log", "debug"]).optional(),
   since: z.string().optional(),
 });
 
 function parseSince(since: string): number {
-  // Unix timestamp as string
   const asNum = Number(since);
   if (!isNaN(asNum) && asNum > 1_000_000_000) {
-    // Treat as unix seconds if < 1e12, else ms
     return asNum < 1e12 ? asNum * 1000 : asNum;
   }
 
-  // Relative: "30s", "2m", "1h"
   const match = since.match(/^(\d+(?:\.\d+)?)(s|m|h)$/);
   if (match) {
     const value = parseFloat(match[1]);
@@ -24,16 +22,7 @@ function parseSince(since: string): number {
     return Date.now() - value * multipliers[unit];
   }
 
-  // Fallback: treat as ms timestamp
   return asNum;
-}
-
-function formatTime(ts: number): string {
-  const d = new Date(ts);
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mm = String(d.getMinutes()).padStart(2, "0");
-  const ss = String(d.getSeconds()).padStart(2, "0");
-  return `${hh}:${mm}:${ss}`;
 }
 
 export function getLogs(params: z.infer<typeof GetLogsSchema>): string {
@@ -50,6 +39,6 @@ export function getLogs(params: z.infer<typeof GetLogsSchema>): string {
   }
 
   return entries
-    .map((e) => `[${formatTime(e.timestamp)}] [${e.level.toUpperCase()}] ${e.message}`)
+    .map((e) => `[${formatTime(e.timestamp)}] [${e.level.toUpperCase()}] ${cleanMessage(e.message)}`)
     .join("\n");
 }

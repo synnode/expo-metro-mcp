@@ -13,50 +13,69 @@ const server = new McpServer({
   version: "0.1.0",
 });
 
-server.tool(
+server.registerTool(
   "get_logs",
-  "Fetch recent logs from the Metro dev server buffer. Supports filtering by level and time.",
-  GetLogsSchema.shape,
+  {
+    description: "Fetch recent logs from the Metro dev server buffer. Supports filtering by level and time.",
+    inputSchema: GetLogsSchema.shape,
+  },
   async (params) => {
     const result = getLogs(params as Parameters<typeof getLogs>[0]);
     return { content: [{ type: "text", text: result }] };
   }
 );
 
-server.tool(
+server.registerTool(
   "get_errors",
-  "Fetch recent errors from the Metro dev server buffer, with stack traces merged into readable blocks.",
-  GetErrorsSchema.shape,
+  {
+    description: "Fetch recent errors from the Metro dev server buffer, with stack traces.",
+    inputSchema: GetErrorsSchema.shape,
+  },
   async (params) => {
     const result = getErrors(params as Parameters<typeof getErrors>[0]);
     return { content: [{ type: "text", text: result }] };
   }
 );
 
-server.tool(
+server.registerTool(
   "get_status",
-  "Check the connection status of the Metro dev server and buffer statistics.",
-  {},
+  {
+    description: "Check the connection status of the Metro dev server and buffer statistics.",
+  },
   async () => {
     const result = getStatus();
     return { content: [{ type: "text", text: result }] };
   }
 );
 
-server.tool(
+server.registerTool(
+  "connect",
+  {
+    description: "Grab the CDP connection to the Metro dev server. Use this if get_status shows disconnected, or to take over the connection from React Native DevTools.",
+  },
+  async () => {
+    const result = await metroClient.grabConnection();
+    return { content: [{ type: "text", text: result }] };
+  }
+);
+
+server.registerTool(
   "clear_logs",
-  "Clear the internal log buffer. Useful after resolving an issue.",
-  {},
+  {
+    description: "Clear the internal log buffer. Useful after resolving an issue.",
+  },
   async () => {
     const result = clearLogs();
     return { content: [{ type: "text", text: result }] };
   }
 );
 
-server.tool(
+server.registerTool(
   "watch_logs",
-  "Listen for incoming logs for a short time window and return all collected entries.",
-  WatchLogsSchema.shape,
+  {
+    description: "Listen for incoming logs for a short time window and return all collected entries.",
+    inputSchema: WatchLogsSchema.shape,
+  },
   async (params) => {
     const result = await watchLogs(params as Parameters<typeof watchLogs>[0]);
     return { content: [{ type: "text", text: result }] };
