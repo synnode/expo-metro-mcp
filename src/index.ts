@@ -7,6 +7,8 @@ import { GetErrorsSchema, getErrors } from "./tools/get-errors.js";
 import { getStatus } from "./tools/get-status.js";
 import { clearLogs } from "./tools/clear-logs.js";
 import { WatchLogsSchema, watchLogs } from "./tools/watch-logs.js";
+import { reload } from "./tools/reload.js";
+import { ResolveStackSchema, resolveStack, invalidateSourceMapCache } from "./tools/resolve-stack.js";
 
 const server = new McpServer({
   name: "expo-metro-mcp",
@@ -78,6 +80,30 @@ server.registerTool(
   },
   async (params) => {
     const result = await watchLogs(params as Parameters<typeof watchLogs>[0]);
+    return { content: [{ type: "text", text: result }] };
+  }
+);
+
+server.registerTool(
+  "reload",
+  {
+    description: "Reload the React Native app via Metro.",
+  },
+  async () => {
+    invalidateSourceMapCache();
+    const result = await reload();
+    return { content: [{ type: "text", text: result }] };
+  }
+);
+
+server.registerTool(
+  "resolve_stack",
+  {
+    description: "Resolve a stack trace from the buffer against the Metro source map, showing original file:line instead of bundle offsets. Optionally filter by error message substring.",
+    inputSchema: ResolveStackSchema.shape,
+  },
+  async (params) => {
+    const result = await resolveStack(params as Parameters<typeof resolveStack>[0]);
     return { content: [{ type: "text", text: result }] };
   }
 );

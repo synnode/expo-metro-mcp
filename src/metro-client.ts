@@ -14,10 +14,19 @@ const DEVTOOLS_CONFLICT_THRESHOLD_MS = 5_000;
 
 export type LogLevel = "error" | "warn" | "info" | "log" | "debug";
 
+export interface RawStackFrame {
+  functionName: string;
+  url: string;    // full original URL from CDP (may be device IP)
+  line: number;   // 0-indexed (CDP convention)
+  col: number;    // 0-indexed
+}
+
 export interface LogEntry {
   timestamp: number;
   level: LogLevel;
   message: string;
+  rawMessage?: string;     // original message before URL stripping (for component stack parsing)
+  rawFrames?: RawStackFrame[];
 }
 
 // CDP Runtime.consoleAPICalled type → our LogLevel
@@ -290,7 +299,21 @@ class MetroClient {
 
     if (!message) return;
 
-    this.addEntry({ timestamp: ts, level, message });
+    // Capture raw stack frames for source map resolution
+    const stackTrace = params.stackTrace as { callFrames?: Array<{ functionName?: string; url?: string; lineNumber?: number; columnNumber?: number }> } | undefined;
+    const rawFrames: RawStackFrame[] | undefined = stackTrace?.callFrames
+      ?.filter((f) => f.url && !f.url.startsWith("native"))
+      .map((f) => ({
+        functionName: f.functionName ?? "(anonymous)",
+        url: f.url!,
+        line: f.lineNumber ?? 0,
+        col: f.columnNumber ?? 0,
+      }));
+
+    // Only store rawMessage if it contains URLs (needed for component stack parsing)
+    const rawMessage = message.includes("http://") ? message : undefined;
+
+    this.addEntry({ timestamp: ts, level, message, rawMessage, rawFrames: rawFrames?.length ? rawFrames : undefined });
   }
 
   // Also listen to /events for Metro build errors (build_failed, bundling_error)
