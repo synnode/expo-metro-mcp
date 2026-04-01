@@ -1,0 +1,65 @@
+import { z } from "zod";
+import { metroClient, LogLevel } from "../metro-client.js";
+
+export const WatchLogsSchema = z.object({
+  duration: z.string().optional().default("10s"),
+  level: z.enum(["error", "warn", "info", "log"]).optional(),
+});
+
+function parseDurationMs(duration: string): number {
+  const match = duration.match(/^(\d+(?:\.\d+)?)(s|m)$/);
+  if (!match) return 10_000;
+
+  const value = parseFloat(match[1]);
+  const unit = match[2];
+  const ms = unit === "m" ? value * 60_000 : value * 1_000;
+
+  // Cap at 30s
+  return Math.min(ms, 30_000);
+}
+
+function formatTime(ts: number): string {
+  const d = new Date(ts);
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  const ss = String(d.getSeconds()).padStart(2, "0");
+  return `${hh}:${mm}:${ss}`;
+}
+
+const POLL_INTERVAL_MS = 500;
+
+export async function watchLogs(params: z.infer<typeof WatchLogsSchema>): Promise<string> {
+  if (!metroClient.connected) {
+    return "Metro is not connected. Start Expo dev server and try again.";
+  }
+
+  const durationMs = parseDurationMs(params.duration);
+  const startBufferSize = metroClient.bufferedEntries;
+  const startTime = Date.now();
+  const levelFilter = params.level as LogLevel | undefined;
+
+  await new Promise<void>((resolve) => {
+    const interval = setInterval(() => {
+      if (Date.now() - startTime >= durationMs) {
+        clearInterval(interval);
+        resolve();
+      }
+    }, POLL_INTERVAL_MS);
+  });
+
+  // Collect entries that arrived after we started watching
+  const all = metroClient.getEntries({ lines: metroClient.bufferedEntries });
+  const newEntries = all.slice(startBufferSize);
+
+  const filtered = levelFilter
+    ? newEntries.filter((e) => e.level === levelFilter)
+    : newEntries;
+
+  if (filtered.length === 0) {
+    return `No logs received during ${params.duration} window.`;
+  }
+
+  return filtered
+    .map((e) => `[${formatTime(e.timestamp)}] [${e.level.toUpperCase()}] ${e.message}`)
+    .join("\n");
+}
