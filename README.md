@@ -78,11 +78,12 @@ claude mcp add expo-metro --env METRO_PORT=8082 npx @synnode/expo-metro-mcp
 
 ## Using alongside React Native DevTools
 
-CDP only allows one client at a time. The MCP server does **not** auto-reconnect, so you can freely switch between it and DevTools:
+CDP only allows one client at a time. Switching between the MCP and DevTools is seamless — whichever connects last takes over, and the other is kicked out automatically.
 
-1. Use `disconnect` to release the connection before opening DevTools
-2. Open React Native DevTools as usual
-3. When done, close DevTools and call `connect` to reattach the MCP server
+- **To use DevTools**: just open or reconnect it. The MCP will be disconnected automatically.
+- **To return to MCP**: call `connect`. DevTools will lose its connection.
+
+`disconnect` is available if you want to explicitly release the connection first, but it's not required.
 
 `get_status` always shows whether the MCP is currently connected.
 
