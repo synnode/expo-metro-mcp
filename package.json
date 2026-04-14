@@ -1,6 +1,6 @@
 {
   "name": "@synnode/expo-metro-mcp",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "MCP server for Expo/React Native development — live logs, stack trace resolution, and simulator/emulator automation via CDP and platform CLIs.",
   "type": "module",
   "bin": {
@@ -10,7 +10,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsup src/index.ts --format esm --dts --clean && chmod +x dist/index.js",
+    "build": "tsup src/index.ts --format esm --dts --clean --minify && chmod +x dist/index.js",
     "dev": "tsx src/index.ts",
     "typecheck": "tsc --noEmit"
   },
