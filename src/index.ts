@@ -62,6 +62,17 @@ server.registerTool(
 );
 
 server.registerTool(
+  "disconnect",
+  {
+    description: "Release the CDP connection so React Native DevTools can connect. Use this before switching to DevTools. Call connect when you want to reattach.",
+  },
+  async () => {
+    metroClient.disconnect();
+    return { content: [{ type: "text", text: "Disconnected. DevTools can now connect freely." }] };
+  }
+);
+
+server.registerTool(
   "clear_logs",
   {
     description: "Clear the internal log buffer. Useful after resolving an issue.",

@@ -5,12 +5,8 @@ const METRO_PORT = parseInt(process.env.METRO_PORT ?? "8081", 10);
 const METRO_HOST = process.env.METRO_HOST ?? "localhost";
 const LOG_BUFFER_SIZE = parseInt(process.env.LOG_BUFFER_SIZE ?? "1000", 10);
 
-const POLL_INTERVAL_MS = 2_000;
 const MAX_BACKOFF_MS = 30_000;
 const INITIAL_BACKOFF_MS = 1_000;
-
-// If CDP disconnects within this many ms of connecting, treat it as a conflict (DevTools kicked us out)
-const DEVTOOLS_CONFLICT_THRESHOLD_MS = 5_000;
 
 export type LogLevel = "error" | "warn" | "info" | "log" | "debug";
 
@@ -97,7 +93,6 @@ class MetroClient {
   private buffer: LogEntry[] = [];
   private cdpWs: WebSocket | null = null;
   private eventsWs: WebSocket | null = null;
-  private pollTimer: ReturnType<typeof setInterval> | null = null;
   private _connected = false;
   private _currentTargetId: string | null = null;
   private _lastConnectedAt: Date | null = null;
@@ -105,7 +100,6 @@ class MetroClient {
   private _stopped = false;
   private _eventsBackoff = INITIAL_BACKOFF_MS;
   private _deviceTitle: string | null = null;
-  private _cdpSuspended = false; // true after a DevTools conflict — wait for explicit connect()
 
   readonly host = METRO_HOST;
   readonly port = METRO_PORT;
@@ -133,15 +127,10 @@ class MetroClient {
   start() {
     this._stopped = false;
     this.connectEvents();
-    this.startPolling();
   }
 
   stop() {
     this._stopped = true;
-    if (this.pollTimer) {
-      clearInterval(this.pollTimer);
-      this.pollTimer = null;
-    }
     if (this.cdpWs) {
       this.cdpWs.terminate();
       this.cdpWs = null;
@@ -150,6 +139,16 @@ class MetroClient {
       this.eventsWs.terminate();
       this.eventsWs = null;
     }
+  }
+
+  disconnect() {
+    if (this.cdpWs) {
+      this.cdpWs.terminate();
+      this.cdpWs = null;
+    }
+    this._connected = false;
+    this._currentTargetId = null;
+    this._deviceTitle = null;
   }
 
   getEntries(options: {
@@ -178,7 +177,6 @@ class MetroClient {
   }
 
   async grabConnection(): Promise<string> {
-    this._cdpSuspended = false;
     await this.checkForNewTarget();
     // Give the WebSocket a moment to open
     await new Promise((resolve) => setTimeout(resolve, 500));
@@ -196,17 +194,6 @@ class MetroClient {
     }
   }
 
-  // Poll /json/list to find new device targets
-  private startPolling() {
-    this.pollTimer = setInterval(async () => {
-      if (this._stopped) return;
-      await this.checkForNewTarget();
-    }, POLL_INTERVAL_MS);
-
-    // Also run immediately
-    this.checkForNewTarget().catch(() => {});
-  }
-
   private async checkForNewTarget() {
     const targets = await fetchTargets(this.host, this.port);
     if (!targets.length) {
@@ -221,10 +208,6 @@ class MetroClient {
     const target = targets[0];
     if (target.id === this._currentTargetId && this.cdpWs?.readyState === WebSocket.OPEN) {
       return; // Already connected to this target
-    }
-
-    if (this._cdpSuspended) {
-      return;
     }
 
     // New target found (or reconnect needed), connect
@@ -244,10 +227,7 @@ class MetroClient {
     const ws = new WebSocket(target.webSocketDebuggerUrl);
     this.cdpWs = ws;
 
-    let connectedAt = 0;
-
     ws.on("open", () => {
-      connectedAt = Date.now();
       this._connected = true;
       this._lastConnectedAt = new Date();
       // Enable Runtime domain to receive console events
@@ -273,13 +253,7 @@ class MetroClient {
         this.cdpWs = null;
         this._currentTargetId = null;
         this._deviceTitle = null;
-
-        const aliveMs = connectedAt > 0 ? Date.now() - connectedAt : Infinity;
-        if (aliveMs < DEVTOOLS_CONFLICT_THRESHOLD_MS) {
-          // Kicked out quickly — likely DevTools. Wait for explicit connect().
-          this._cdpSuspended = true;
-        }
-        // Clean disconnect (Metro restart etc.) → _cdpSuspended stays false → auto-reconnect
+        // No auto-reconnect — use connect tool to reattach when needed
       }
     });
 
