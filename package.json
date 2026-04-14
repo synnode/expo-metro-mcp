@@ -1,14 +1,44 @@
 {
   "name": "@synnode/expo-metro-mcp",
-  "version": "0.1.0",
+  "version": "1.0.0",
+  "description": "MCP server for Expo/React Native development — live logs, stack trace resolution, and simulator/emulator automation via CDP and platform CLIs.",
   "type": "module",
   "bin": {
     "expo-metro-mcp": "./dist/index.js"
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup src/index.ts --format esm --dts --clean && chmod +x dist/index.js",
     "dev": "tsx src/index.ts",
     "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "mcp",
+    "expo",
+    "react-native",
+    "metro",
+    "simulator",
+    "emulator",
+    "ios",
+    "android",
+    "debugging",
+    "claude",
+    "ai"
+  ],
+  "author": "Michael Sanders",
+  "license": "MIT",
+  "homepage": "https://github.com/Synnode/expo-metro-mcp#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Synnode/expo-metro-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Synnode/expo-metro-mcp/issues"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0",
