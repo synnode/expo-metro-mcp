@@ -49,6 +49,28 @@ claude mcp add expo-metro --env METRO_PORT=8082 node /path/to/dist/index.js
 | `disconnect` | Release the CDP connection so React Native DevTools can connect freely |
 | `reload` | Reload the React Native app via Metro |
 | `resolve_stack` | Resolve a stack trace against the Metro source map, showing original file/line instead of bundle offsets |
+| `list_devices` | List active iOS simulators and Android emulators |
+| `screenshot` | Take a screenshot of the active simulator/emulator. Returns the image directly. Optional: `platform`, `device_id` |
+| `tap` | Tap at x,y coordinates on the active simulator/emulator. Optional: `platform`, `device_id` |
+| `swipe` | Swipe from one coordinate to another (Android only). Optional: `duration_ms`, `platform`, `device_id` |
+
+## Screenshot & UI automation
+
+`screenshot`, `tap`, and `swipe` interact directly with your running simulator or emulator — no extra packages or paid plans needed.
+
+**Requirements:**
+- **iOS screenshots**: macOS with Xcode installed (`xcrun simctl` must be available)
+- **iOS tap/swipe**: `idb` — Facebook's iOS Development Bridge
+  ```bash
+  brew install idb-companion
+  pip3 install fb-idb
+  ```
+- **Android**: `adb` in your PATH (part of Android SDK platform-tools) — tap, swipe and screenshot all work out of the box
+
+**Notes:**
+- If multiple devices are running, use `list_devices` to find the ID and pass it via `device_id`
+- Coordinates are in points (iOS logical pixels) or pixels (Android)
+- iOS screenshots work without idb — only tap/swipe require it
 
 ## Using alongside React Native DevTools
 

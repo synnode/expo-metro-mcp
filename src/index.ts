@@ -9,6 +9,9 @@ import { clearLogs } from "./tools/clear-logs.js";
 import { WatchLogsSchema, watchLogs } from "./tools/watch-logs.js";
 import { reload } from "./tools/reload.js";
 import { ResolveStackSchema, resolveStack, invalidateSourceMapCache } from "./tools/resolve-stack.js";
+import { ScreenshotSchema, screenshot } from "./tools/screenshot.js";
+import { TapSchema, SwipeSchema, tap, swipe } from "./tools/tap.js";
+import { listDevices } from "./tools/list-devices.js";
 
 const server = new McpServer({
   name: "expo-metro-mcp",
@@ -115,6 +118,56 @@ server.registerTool(
   },
   async (params) => {
     const result = await resolveStack(params as Parameters<typeof resolveStack>[0]);
+    return { content: [{ type: "text", text: result }] };
+  }
+);
+
+server.registerTool(
+  "list_devices",
+  {
+    description: "List active iOS simulators and Android emulators. Use this to find available devices before taking screenshots or sending taps.",
+  },
+  async () => {
+    const result = listDevices();
+    return { content: [{ type: "text", text: result }] };
+  }
+);
+
+server.registerTool(
+  "screenshot",
+  {
+    description: "Take a screenshot of the active iOS simulator or Android emulator. Returns the image directly. Optionally specify platform ('ios' or 'android') or device_id if multiple devices are running.",
+    inputSchema: ScreenshotSchema.shape,
+  },
+  async (params) => {
+    const result = screenshot(params as Parameters<typeof screenshot>[0]);
+    if (result.type === "image") {
+      return { content: [{ type: "image", data: result.data, mimeType: result.mimeType }] };
+    }
+    return { content: [{ type: "text", text: result.text }] };
+  }
+);
+
+server.registerTool(
+  "tap",
+  {
+    description: "Tap at x,y coordinates on the active simulator/emulator. Use screenshot first to determine coordinates. iOS requires idb (brew install idb-companion && pip3 install fb-idb). Android works via adb out of the box. Optionally specify platform or device_id.",
+    inputSchema: TapSchema.shape,
+  },
+  async (params) => {
+    const result = tap(params as Parameters<typeof tap>[0]);
+    return { content: [{ type: "text", text: result }] };
+  }
+);
+
+server.registerTool(
+  "swipe",
+  {
+    description: "Swipe from one coordinate to another. Requires idb on iOS (brew install idb-companion && pip3 install fb-idb). Android works via adb out of the box. Useful for scrolling lists or dismissing sheets.",
+    inputSchema: SwipeSchema.shape,
+  },
+  async (params) => {
+    const result = swipe(params as Parameters<typeof swipe>[0]);
     return { content: [{ type: "text", text: result }] };
   }
 );
