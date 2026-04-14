@@ -45,18 +45,27 @@ claude mcp add expo-metro --env METRO_PORT=8082 node /path/to/dist/index.js
 | `get_status` | Connection status, device name, and buffer statistics |
 | `clear_logs` | Clear the log buffer |
 | `watch_logs` | Poll for incoming logs for a time window. Optional: `duration` (e.g. `"10s"`, max `"30s"`), `level` |
+| `connect` | Grab the CDP connection from Metro. Use after `disconnect` or when `get_status` shows disconnected |
+| `disconnect` | Release the CDP connection so React Native DevTools can connect freely |
+| `reload` | Reload the React Native app via Metro |
+| `resolve_stack` | Resolve a stack trace against the Metro source map, showing original file/line instead of bundle offsets |
+
+## Using alongside React Native DevTools
+
+CDP only allows one client at a time. The MCP server does **not** auto-reconnect, so you can freely switch between it and DevTools:
+
+1. Use `disconnect` to release the connection before opening DevTools
+2. Open React Native DevTools as usual
+3. When done, close DevTools and call `connect` to reattach the MCP server
+
+`get_status` always shows whether the MCP is currently connected.
 
 ## How it works
 
-Metro exposes a CDP WebSocket at `/inspector/debug`. The server polls `/json/list` every 2s to discover connected devices, then connects via CDP and enables `Runtime.consoleAPICalled` events. Metro build errors (`build_failed`, `bundling_error`) are captured separately via the `/events` WebSocket.
-
-The server reconnects automatically when:
-- Metro restarts
-- The device/emulator disconnects and reconnects
-- A new device connects
+Metro exposes a CDP WebSocket at `/inspector/debug`. On `connect`, the server calls `/json/list` to discover the active device target, then attaches via CDP and enables `Runtime.consoleAPICalled` events. Metro build errors (`build_failed`, `bundling_error`) are captured separately via the `/events` WebSocket, which reconnects automatically.
 
 ## Notes
 
-- If Metro is not reachable on startup: the server starts normally, `get_status` returns `connected: false`.
+- If Metro is not reachable on startup: the server starts normally, `get_status` returns `connected: false`. Call `connect` once your dev server is up.
 - Memory is bounded by `LOG_BUFFER_SIZE` (circular buffer, oldest entries dropped first).
-- The CDP connection may show a "unsupported debugging client" notice in Metro's terminal — this is harmless.
+- The CDP connection may show an "unsupported debugging client" notice in Metro's terminal — this is harmless.
