@@ -37,7 +37,7 @@ LOG_BUFFER_SIZE=1000
 If Metro runs on a different port:
 
 ```bash
-claude mcp add expo-metro --env METRO_PORT=8082 node /path/to/dist/index.js
+claude mcp add expo-metro --env METRO_PORT=8082 npx @synnode/expo-metro-mcp
 ```
 
 ## Available tools
