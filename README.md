@@ -7,11 +7,15 @@ Uses the **Chrome DevTools Protocol (CDP)** inspector endpoint that Metro expose
 ## Installation
 
 ```bash
-cd expo-metro-mcp
-npm install && npm run build
-
 # Register with Claude Code CLI
-claude mcp add expo-metro node /absolute/path/to/expo-metro-mcp/dist/index.js
+claude mcp add expo-metro npx @synnode/expo-metro-mcp
+```
+
+Or install globally and register:
+
+```bash
+npm install -g @synnode/expo-metro-mcp
+claude mcp add expo-metro expo-metro-mcp
 ```
 
 Restart Claude Code after adding the server.
