@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { execSync } from "child_process";
 import { listAllDevices, pickDevice } from "./devices.js";
+import { ensureIdbCompanion } from "./idb-companion.js";
 
 export const TapSchema = z.object({
   x: z.number().int().describe("X coordinate in points/pixels"),
@@ -31,6 +32,7 @@ function isIdbAvailable(): boolean {
 function tapIOS(deviceId: string, x: number, y: number): void {
   if (isIdbAvailable()) {
     // idb (Facebook iOS Development Bridge) — preferred, supports tap natively
+    ensureIdbCompanion(deviceId);
     execSync(`idb ui tap ${x} ${y} --udid "${deviceId}"`, {
       timeout: 5_000,
       stdio: ["ignore", "ignore", "pipe"],
@@ -68,6 +70,7 @@ function tapAndroid(deviceId: string, x: number, y: number): void {
 function swipeIOS(deviceId: string, x1: number, y1: number, x2: number, y2: number, durationMs: number): void {
   if (isIdbAvailable()) {
     // idb supports swipe natively
+    ensureIdbCompanion(deviceId);
     const durationSec = (durationMs / 1000).toFixed(2);
     execSync(`idb ui swipe ${x1} ${y1} ${x2} ${y2} ${durationSec} --udid "${deviceId}"`, {
       timeout: durationMs + 5_000,
