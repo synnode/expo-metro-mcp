@@ -91,6 +91,14 @@ CDP only allows one client at a time. Switching between the MCP and DevTools is 
 
 Metro exposes a CDP WebSocket at `/inspector/debug`. On `connect`, the server calls `/json/list` to discover the active device target, then attaches via CDP and enables `Runtime.consoleAPICalled` events. Metro build errors (`build_failed`, `bundling_error`) are captured separately via the `/events` WebSocket, which reconnects automatically.
 
+## Teaching Claude Code about this MCP
+
+Add [`SKILL.md`](./SKILL.md) to your project root (or `CLAUDE.md`) to teach Claude Code how to use this MCP effectively — when to check logs, how to debug errors, how to use screenshots and taps, and more.
+
+```bash
+curl -o SKILL.md https://raw.githubusercontent.com/Synnode/expo-metro-mcp/master/SKILL.md
+```
+
 ## Notes
 
 - If Metro is not reachable on startup: the server starts normally, `get_status` returns `connected: false`. Call `connect` once your dev server is up.
