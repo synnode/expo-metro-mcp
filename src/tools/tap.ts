@@ -19,11 +19,43 @@ export const SwipeSchema = z.object({
   platform: z.enum(["ios", "android"]).optional(),
 });
 
+function isIdbAvailable(): boolean {
+  try {
+    execSync("which idb", { timeout: 2000, stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function tapIOS(deviceId: string, x: number, y: number): void {
-  execSync(`xcrun simctl io "${deviceId}" sendtouchtype touch --point "${x},${y}"`, {
-    timeout: 5_000,
-    stdio: ["ignore", "ignore", "pipe"],
-  });
+  if (isIdbAvailable()) {
+    // idb (Facebook iOS Development Bridge) — preferred, supports tap natively
+    execSync(`idb ui tap ${x} ${y} --udid "${deviceId}"`, {
+      timeout: 5_000,
+      stdio: ["ignore", "ignore", "pipe"],
+    });
+    return;
+  }
+
+  // Fallback: xcrun simctl io sendtouchJSON (Xcode 14.3+, experimental)
+  // Format: {"x": 100, "y": 200, "type": "touch"}
+  const touchJson = JSON.stringify({ touches: [{ x, y, action: "began" }] });
+  try {
+    execSync(`echo '${touchJson}' | xcrun simctl io "${deviceId}" sendtouchJSON -`, {
+      timeout: 5_000,
+      stdio: ["pipe", "ignore", "pipe"],
+    });
+    return;
+  } catch {
+    // sendtouchJSON not available on this Xcode version
+  }
+
+  throw new Error(
+    `iOS tap requires idb (Facebook iOS Development Bridge).\n` +
+    `Install via: brew install idb-companion && pip3 install fb-idb\n` +
+    `Or: brew install facebook/fb/idb-companion`
+  );
 }
 
 function tapAndroid(deviceId: string, x: number, y: number): void {
@@ -33,10 +65,21 @@ function tapAndroid(deviceId: string, x: number, y: number): void {
   });
 }
 
-function swipeIOS(_deviceId: string, _x1: number, _y1: number, _x2: number, _y2: number, _durationMs: number): void {
-  // xcrun simctl does not support swipe gestures natively.
-  // Throw so the caller can return a clear message.
-  throw new Error("iOS simulator does not support swipe via simctl. Use an Android emulator for swipe gestures, or trigger the scroll programmatically in your app.");
+function swipeIOS(deviceId: string, x1: number, y1: number, x2: number, y2: number, durationMs: number): void {
+  if (isIdbAvailable()) {
+    // idb supports swipe natively
+    const durationSec = (durationMs / 1000).toFixed(2);
+    execSync(`idb ui swipe ${x1} ${y1} ${x2} ${y2} ${durationSec} --udid "${deviceId}"`, {
+      timeout: durationMs + 5_000,
+      stdio: ["ignore", "ignore", "pipe"],
+    });
+    return;
+  }
+
+  throw new Error(
+    `iOS swipe requires idb (Facebook iOS Development Bridge).\n` +
+    `Install via: brew install idb-companion && pip3 install fb-idb`
+  );
 }
 
 function swipeAndroid(deviceId: string, x1: number, y1: number, x2: number, y2: number, durationMs: number): void {

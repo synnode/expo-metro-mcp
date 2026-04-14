@@ -151,7 +151,7 @@ server.registerTool(
 server.registerTool(
   "tap",
   {
-    description: "Tap a coordinate on the active iOS simulator or Android emulator. Use screenshot first to determine coordinates. Optionally specify platform or device_id.",
+    description: "Tap at x,y coordinates on the active simulator/emulator. Use screenshot first to determine coordinates. iOS requires idb (brew install idb-companion && pip3 install fb-idb). Android works via adb out of the box. Optionally specify platform or device_id.",
     inputSchema: TapSchema.shape,
   },
   async (params) => {
@@ -163,7 +163,7 @@ server.registerTool(
 server.registerTool(
   "swipe",
   {
-    description: "Swipe from one coordinate to another. Android only — iOS simulator does not support swipe via simctl. Useful for scrolling lists or dismissing sheets.",
+    description: "Swipe from one coordinate to another. Requires idb on iOS (brew install idb-companion && pip3 install fb-idb). Android works via adb out of the box. Useful for scrolling lists or dismissing sheets.",
     inputSchema: SwipeSchema.shape,
   },
   async (params) => {

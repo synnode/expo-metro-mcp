@@ -59,13 +59,18 @@ claude mcp add expo-metro --env METRO_PORT=8082 node /path/to/dist/index.js
 `screenshot`, `tap`, and `swipe` interact directly with your running simulator or emulator — no extra packages or paid plans needed.
 
 **Requirements:**
-- **iOS**: macOS with Xcode installed (`xcrun simctl` must be available)
-- **Android**: `adb` in your PATH (part of Android SDK platform-tools)
+- **iOS screenshots**: macOS with Xcode installed (`xcrun simctl` must be available)
+- **iOS tap/swipe**: `idb` — Facebook's iOS Development Bridge
+  ```bash
+  brew install idb-companion
+  pip3 install fb-idb
+  ```
+- **Android**: `adb` in your PATH (part of Android SDK platform-tools) — tap, swipe and screenshot all work out of the box
 
 **Notes:**
-- `swipe` is Android only — `xcrun simctl` does not support swipe gestures
 - If multiple devices are running, use `list_devices` to find the ID and pass it via `device_id`
 - Coordinates are in points (iOS logical pixels) or pixels (Android)
+- iOS screenshots work without idb — only tap/swipe require it
 
 ## Using alongside React Native DevTools
 
