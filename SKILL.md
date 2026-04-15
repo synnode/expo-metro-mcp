@@ -6,8 +6,8 @@ Use this skill when working on a React Native / Expo project that has a running 
 
 - Metro dev server running (`npx expo start`)
 - App running on a simulator or emulator (for device tools)
-- iOS tap/swipe: `brew install idb-companion && pip3 install fb-idb`
-- Android tap/swipe: `adb` available (Android Studio / platform-tools)
+- iOS tap/swipe/input: `brew install idb-companion && pip3 install fb-idb`
+- Android tap/swipe/input: `adb` available (Android Studio / platform-tools)
 
 ## Tool reference
 
@@ -23,9 +23,11 @@ Use this skill when working on a React Native / Expo project that has a running 
 | `connect` | Grab CDP connection if disconnected or taken by DevTools |
 | `disconnect` | Release CDP so React Native DevTools can connect |
 | `list_devices` | List active iOS simulators and Android emulators |
-| `screenshot` | Capture current screen as image (coordinates are in logical points) |
+| `screenshot` | Capture current screen as image; response includes exact pixel dimensions for tap/swipe |
 | `tap` | Tap at x,y coordinates |
 | `swipe` | Swipe between two coordinates (scroll, dismiss sheets, etc.) |
+| `input_text` | Type text into the focused input field — works without the on-screen keyboard |
+| `input_key` | Send a special key: `enter`, `backspace`, `delete`, `tab`, `escape`, `back`, `space`, arrow keys |
 
 ## Workflows
 
@@ -56,11 +58,19 @@ Use this skill when working on a React Native / Expo project that has a running 
 
 **Note:** iOS swipe simulation is limited due to idb constraints. For reliable swipe gestures, prefer Android emulators.
 
+### Filling in a form field
+
+1. `screenshot` — locate the input field
+2. `tap` on the field to focus it
+3. `input_text` with the value to type — no keyboard required
+4. `input_key` with `"enter"` to submit, or `tap` the submit button
+5. `screenshot` — verify the result
+
 ### Navigating a full user flow
 
 1. `screenshot` — assess the current screen
 2. Determine the next action (tap a button, fill a field, scroll)
-3. Execute `tap` or `swipe`
+3. Execute `tap`, `swipe`, `input_text`, or `input_key`
 4. `screenshot` — verify the transition
 5. `watch_logs` if the action triggers async work (API calls, navigation)
 6. Repeat from step 1 until the flow is complete
@@ -77,8 +87,8 @@ Use this skill when working on a React Native / Expo project that has a running 
 
 ### Android
 
-- Screenshots are captured via `adb screencap` at native resolution
-- Tap and swipe use `adb shell input` — no extra tooling required
+- Screenshots are captured via `adb screencap` at native resolution; pixel dimensions are included in the response
+- Tap, swipe, input_text, and input_key use `adb shell input` — no extra tooling required
 - Works on both emulators and (if adb-connected) physical devices
 
 ## Connection management
@@ -92,6 +102,8 @@ The MCP holds a CDP WebSocket connection to Metro. React Native DevTools uses th
 ## Tips
 
 - Always `screenshot` before tapping — coordinates are only valid for the current screen state
+- The `screenshot` response includes the image dimensions — use those exact px values for `tap`/`swipe`, no manual scaling needed
+- To fill a form: `tap` to focus → `input_text` to type → `input_key` `"enter"` to submit
 - Use `watch_logs` with `level: "error"` after navigation actions to catch silent failures
 - If a stack trace is unreadable (bundle offsets), always run `resolve_stack` before attempting a fix
 - `clear_logs` between distinct test scenarios keeps the buffer clean and `get_errors` output relevant
