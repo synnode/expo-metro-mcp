@@ -91,10 +91,21 @@ function captureAndroid(deviceId: string, outputPath: string): void {
   });
 }
 
+function getPngDimensions(buffer: Buffer): { width: number; height: number } | null {
+  // PNG signature is 8 bytes, then IHDR chunk: 4 length + 4 type + 4 width + 4 height
+  if (buffer.length < 24) return null;
+  if (buffer.readUInt32BE(0) !== 0x89504e47) return null; // PNG magic
+  const width = buffer.readUInt32BE(16);
+  const height = buffer.readUInt32BE(20);
+  return { width, height };
+}
+
 export function screenshot(params: z.infer<typeof ScreenshotSchema>): {
   type: "image";
   data: string;
   mimeType: string;
+  width: number;
+  height: number;
 } | { type: "text"; text: string } {
   const devices = listAllDevices();
   if (!devices.length) {
@@ -121,13 +132,17 @@ export function screenshot(params: z.infer<typeof ScreenshotSchema>): {
       captureAndroid(device.id, outputPath);
     }
 
-    const imageData = fs.readFileSync(outputPath).toString("base64");
+    const imageBuffer = fs.readFileSync(outputPath);
+    const imageData = imageBuffer.toString("base64");
+    const dims = getPngDimensions(imageBuffer);
     fs.unlinkSync(outputPath);
 
     return {
       type: "image",
       data: imageData,
       mimeType: "image/png",
+      width: dims?.width ?? 0,
+      height: dims?.height ?? 0,
     };
   } catch (err) {
     try { fs.unlinkSync(outputPath); } catch {}

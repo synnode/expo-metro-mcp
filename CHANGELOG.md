@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.2] - 2026-04-15
+
+### Fixed
+- `screenshot` now returns image dimensions (`width x height` in px) alongside the image. The MCP includes a text note with the exact pixel size so callers never need to guess or manually calculate a scale factor for `tap`/`swipe` coordinates
+
 ## [1.0.1] - 2026-04-14
 
 ### Changed

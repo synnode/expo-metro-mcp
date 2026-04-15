@@ -142,7 +142,15 @@ server.registerTool(
   async (params) => {
     const result = screenshot(params as Parameters<typeof screenshot>[0]);
     if (result.type === "image") {
-      return { content: [{ type: "image", data: result.data, mimeType: result.mimeType }] };
+      const dimNote = result.width && result.height
+        ? `Screenshot dimensions: ${result.width}x${result.height}px. Use these exact coordinates for tap and swipe — no scaling needed.`
+        : "Screenshot dimensions unknown.";
+      return {
+        content: [
+          { type: "image", data: result.data, mimeType: result.mimeType },
+          { type: "text", text: dimNote },
+        ],
+      };
     }
     return { content: [{ type: "text", text: result.text }] };
   }
