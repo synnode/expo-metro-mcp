@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.3] - 2026-04-15
+
+### Added
+- `input_text` — type text into the focused input field without requiring the on-screen keyboard (Android: `adb shell input text`, iOS: `idb ui text`)
+- `input_key` — send special key presses: enter, backspace, delete, tab, escape, home, end, back, space, arrow keys (Android: `adb shell input keyevent`, iOS: `idb ui key` with HID codes)
+
 ## [1.0.2] - 2026-04-15
 
 ### Fixed

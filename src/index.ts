@@ -11,6 +11,7 @@ import { reload } from "./tools/reload.js";
 import { ResolveStackSchema, resolveStack, invalidateSourceMapCache } from "./tools/resolve-stack.js";
 import { ScreenshotSchema, screenshot } from "./tools/screenshot.js";
 import { TapSchema, SwipeSchema, tap, swipe } from "./tools/tap.js";
+import { InputTextSchema, InputKeySchema, inputText, inputKey } from "./tools/input.js";
 import { listDevices } from "./tools/list-devices.js";
 
 const server = new McpServer({
@@ -176,6 +177,30 @@ server.registerTool(
   },
   async (params) => {
     const result = swipe(params as Parameters<typeof swipe>[0]);
+    return { content: [{ type: "text", text: result }] };
+  }
+);
+
+server.registerTool(
+  "input_text",
+  {
+    description: "Type text into the currently focused input field on the active simulator/emulator. Use tap to focus an input first, then call this tool. Works without requiring the on-screen keyboard to be visible. iOS requires idb (brew install idb-companion && pip3 install fb-idb). Android works via adb out of the box.",
+    inputSchema: InputTextSchema.shape,
+  },
+  async (params) => {
+    const result = inputText(params as Parameters<typeof inputText>[0]);
+    return { content: [{ type: "text", text: result }] };
+  }
+);
+
+server.registerTool(
+  "input_key",
+  {
+    description: "Send a special key press to the active simulator/emulator. Supported keys: enter, backspace, delete, tab, escape, home, end, back, space, up, down, left, right. Use after input_text to submit forms (enter) or correct mistakes (backspace).",
+    inputSchema: InputKeySchema.shape,
+  },
+  async (params) => {
+    const result = inputKey(params as Parameters<typeof inputKey>[0]);
     return { content: [{ type: "text", text: result }] };
   }
 );
