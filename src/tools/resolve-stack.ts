@@ -77,7 +77,7 @@ function parseMessageFrames(rawMessage: string): RawStackFrame[] {
   return frames;
 }
 
-async function resolveFrames(frames: RawStackFrame[], fallbackMapUrl?: string): Promise<string[]> {
+async function resolveFrames(frames: RawStackFrame[]): Promise<string[]> {
   const lines: string[] = [];
 
   // Group frames by bundle URL to avoid fetching the same map multiple times

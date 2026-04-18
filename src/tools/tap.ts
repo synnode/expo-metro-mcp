@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { execSync } from "child_process";
 import { listAllDevices, pickDevice } from "./devices.js";
-import { ensureIdbCompanion } from "./idb-companion.js";
+import { ensureIdbCompanion, isIdbAvailable } from "./idb.js";
 
 export const TapSchema = z.object({
   x: z.number().int().describe("X coordinate in points/pixels"),
@@ -19,15 +19,6 @@ export const SwipeSchema = z.object({
   device_id: z.string().optional(),
   platform: z.enum(["ios", "android"]).optional(),
 });
-
-function isIdbAvailable(): boolean {
-  try {
-    execSync("which idb", { timeout: 2000, stdio: "ignore" });
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 function tapIOS(deviceId: string, x: number, y: number): void {
   if (isIdbAvailable()) {

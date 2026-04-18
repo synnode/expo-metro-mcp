@@ -27,7 +27,6 @@ export async function watchLogs(params: z.infer<typeof WatchLogsSchema>): Promis
   }
 
   const durationMs = parseDurationMs(params.duration);
-  const startBufferSize = metroClient.bufferedEntries;
   const startTime = Date.now();
   const levelFilter = params.level as LogLevel | undefined;
 
@@ -40,9 +39,9 @@ export async function watchLogs(params: z.infer<typeof WatchLogsSchema>): Promis
     }, POLL_INTERVAL_MS);
   });
 
-  // Collect entries that arrived after we started watching
-  const all = metroClient.getEntries({ lines: metroClient.bufferedEntries });
-  const newEntries = all.slice(startBufferSize);
+  // Collect entries that arrived after we started watching.
+  // Filter by timestamp instead of buffer index so circular-buffer eviction can't skew results.
+  const newEntries = metroClient.getEntries({ since: startTime, lines: metroClient.bufferedEntries });
 
   const filtered = levelFilter
     ? newEntries.filter((e) => e.level === levelFilter)

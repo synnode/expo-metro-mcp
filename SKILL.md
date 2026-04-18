@@ -81,7 +81,7 @@ Use this skill when working on a React Native / Expo project that has a running 
 
 - Screenshots are automatically downscaled from pixel resolution to logical points via `sips`
 - Tap and swipe coordinates must be in **logical points** (matching the downscaled screenshot)
-- Tap requires `idb` — the MCP auto-spawns `idb_companion` and kills it after inactivity
+- Tap requires `idb` — the MCP auto-spawns `idb_companion`
 - If `idb` is unavailable, tap falls back to `xcrun simctl io sendtouchJSON` (Xcode 14.3+)
 - Physical devices are not supported — simulators only
 
@@ -89,6 +89,7 @@ Use this skill when working on a React Native / Expo project that has a running 
 
 - Screenshots are captured via `adb screencap` at native resolution; pixel dimensions are included in the response
 - Tap, swipe, input_text, and input_key use `adb shell input` — no extra tooling required
+- `input_text` is best-effort for simple text; symbols, unicode, and multiline input can be inconsistent depending on the device/OS
 - Works on both emulators and (if adb-connected) physical devices
 
 ## Connection management
@@ -102,9 +103,10 @@ The MCP holds a CDP WebSocket connection to Metro. React Native DevTools uses th
 ## Tips
 
 - Always `screenshot` before tapping — coordinates are only valid for the current screen state
-- The `screenshot` response includes the image dimensions — use those exact px values for `tap`/`swipe`, no manual scaling needed
+- The `screenshot` response includes the image dimensions — on Android these are native pixels; on iOS they match the downscaled logical-point screenshot
 - To fill a form: `tap` to focus → `input_text` to type → `input_key` `"enter"` to submit
+- If multiple devices are running, pass `platform` or `device_id` explicitly to avoid ambiguity
+- If you omit both, the MCP prefers iOS first and otherwise picks the first available device
 - Use `watch_logs` with `level: "error"` after navigation actions to catch silent failures
 - If a stack trace is unreadable (bundle offsets), always run `resolve_stack` before attempting a fix
 - `clear_logs` between distinct test scenarios keeps the buffer clean and `get_errors` output relevant
-- If multiple devices are running, pass `platform` or `device_id` explicitly to avoid ambiguity

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { execSync } from "child_process";
 import { listAllDevices, pickDevice } from "./devices.js";
-import { ensureIdbCompanion } from "./idb-companion.js";
+import { ensureIdbCompanion, isIdbAvailable } from "./idb.js";
 
 export const InputTextSchema = z.object({
   text: z.string().describe("Text to type into the focused input field"),
@@ -67,15 +67,6 @@ const IDB_HID_KEYCODES: Record<string, number> = {
   right: 79,
 };
 
-function isIdbAvailable(): boolean {
-  try {
-    execSync("which idb", { timeout: 2000, stdio: "ignore" });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 function inputTextIOS(deviceId: string, text: string): void {
   if (isIdbAvailable()) {
     ensureIdbCompanion(deviceId);
@@ -94,12 +85,20 @@ function inputTextIOS(deviceId: string, text: string): void {
 }
 
 function inputTextAndroid(deviceId: string, text: string): void {
-  // adb shell input text doesn't handle spaces and special chars well — use %s for space
+  // adb shell input text is best-effort only. It handles simple text reliably,
+  // but symbols, unicode, and newlines are inconsistent across Android versions.
+  if (/\n|\r/.test(text)) {
+    throw new Error("Android text input does not support newlines reliably. Send text line-by-line and use input_key 'enter' between lines.");
+  }
+
   const escaped = text
-    .replace(/\\/g, "\\\\")
+    .replace(/%/g, "%25")
     .replace(/ /g, "%s")
+    .replace(/[&<>|;$`()\[\]{}*!?#~]/g, (char) => `\\${char}`)
+    .replace(/\\/g, "\\\\")
     .replace(/'/g, "\\'")
     .replace(/"/g, '\\"');
+
   execSync(`adb -s "${deviceId}" shell input text "${escaped}"`, {
     timeout: 10_000,
     stdio: ["ignore", "ignore", "pipe"],

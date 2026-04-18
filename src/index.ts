@@ -16,7 +16,7 @@ import { listDevices } from "./tools/list-devices.js";
 
 const server = new McpServer({
   name: "expo-metro-mcp",
-  version: "0.1.0",
+  version: "1.0.3",
 });
 
 server.registerTool(

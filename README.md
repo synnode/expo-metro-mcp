@@ -74,10 +74,12 @@ claude mcp add expo-metro --env METRO_PORT=8082 npx @synnode/expo-metro-mcp
 - **Android**: `adb` in your PATH (part of Android SDK platform-tools) — all tools work out of the box
 
 **Notes:**
-- `screenshot` returns the image alongside its pixel dimensions — use those coordinates directly for `tap`/`swipe`, no manual scaling needed
+- `screenshot` returns the image alongside its dimensions. On Android these are native pixels; on iOS the screenshot is downscaled to logical points so the coordinates match `tap`/`swipe`
 - `input_text` types into the focused field without requiring the on-screen keyboard to appear
+- On Android, `input_text` is best-effort: simple ASCII text works well, but symbols, unicode, and multiline input can be inconsistent across devices/OS versions
 - To fill a form: `tap` the field → `input_text` the value → `input_key "enter"` to submit
 - If multiple devices are running, use `list_devices` to find the ID and pass it via `device_id`
+- If you omit `platform` and `device_id`, the MCP prefers a booted iOS simulator first, then falls back to the first available device
 - iOS screenshots work without idb — only tap/swipe/input require it
 
 ## Using alongside React Native DevTools
