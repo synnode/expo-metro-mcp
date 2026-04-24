@@ -13,10 +13,33 @@ import { ScreenshotSchema, screenshot } from "./tools/screenshot.js";
 import { TapSchema, SwipeSchema, tap, swipe } from "./tools/tap.js";
 import { InputTextSchema, InputKeySchema, inputText, inputKey } from "./tools/input.js";
 import { listDevices } from "./tools/list-devices.js";
+import { EvaluateSchema, evaluate } from "./tools/evaluate.js";
+import {
+  MmkvGetJsonSchema,
+  MmkvGetSchema,
+  MmkvKeysSchema,
+  MmkvMergeJsonSchema,
+  MmkvRemoveSchema,
+  MmkvSetJsonSchema,
+  MmkvSetSchema,
+  ZustandPersistGetSchema,
+  ZustandPersistMergeSchema,
+  ZustandPersistSetSchema,
+  mmkvGet,
+  mmkvGetJson,
+  mmkvKeys,
+  mmkvMergeJson,
+  mmkvRemove,
+  mmkvSet,
+  mmkvSetJson,
+  zustandPersistGet,
+  zustandPersistMerge,
+  zustandPersistSet,
+} from "./tools/mmkv.js";
 
 const server = new McpServer({
   name: "expo-metro-mcp",
-  version: "0.1.0",
+  version: "1.0.6",
 });
 
 server.registerTool(
@@ -201,6 +224,138 @@ server.registerTool(
   },
   async (params) => {
     const result = inputKey(params as Parameters<typeof inputKey>[0]);
+    return { content: [{ type: "text", text: result }] };
+  }
+);
+
+server.registerTool(
+  "evaluate",
+  {
+    description: "Run JavaScript inside the connected React Native app runtime via Metro CDP. Supports async expressions, so you can inspect globals, read or mutate state, trigger navigation, or call app helpers directly.",
+    inputSchema: EvaluateSchema.shape,
+  },
+  async (params) => {
+    const result = await evaluate(params as Parameters<typeof evaluate>[0]);
+    return { content: [{ type: "text", text: result }] };
+  }
+);
+
+server.registerTool(
+  "mmkv_get",
+  {
+    description: "Read a value from the app's MMKV debug hook at globalThis.__EXPO_METRO_MCP__.mmkv. Returns JSON with key and value.",
+    inputSchema: MmkvGetSchema.shape,
+  },
+  async (params) => {
+    const result = await mmkvGet(params as Parameters<typeof mmkvGet>[0]);
+    return { content: [{ type: "text", text: result }] };
+  }
+);
+
+server.registerTool(
+  "mmkv_set",
+  {
+    description: "Write a string value through the app's MMKV debug hook at globalThis.__EXPO_METRO_MCP__.mmkv. Useful for seeding persisted Zustand state before a screen renders.",
+    inputSchema: MmkvSetSchema.shape,
+  },
+  async (params) => {
+    const result = await mmkvSet(params as Parameters<typeof mmkvSet>[0]);
+    return { content: [{ type: "text", text: result }] };
+  }
+);
+
+server.registerTool(
+  "mmkv_remove",
+  {
+    description: "Remove a key through the app's MMKV debug hook at globalThis.__EXPO_METRO_MCP__.mmkv.",
+    inputSchema: MmkvRemoveSchema.shape,
+  },
+  async (params) => {
+    const result = await mmkvRemove(params as Parameters<typeof mmkvRemove>[0]);
+    return { content: [{ type: "text", text: result }] };
+  }
+);
+
+server.registerTool(
+  "mmkv_keys",
+  {
+    description: "List all keys exposed by the app's MMKV debug hook at globalThis.__EXPO_METRO_MCP__.mmkv.",
+    inputSchema: MmkvKeysSchema.shape,
+  },
+  async (params) => {
+    const result = await mmkvKeys(params as Parameters<typeof mmkvKeys>[0]);
+    return { content: [{ type: "text", text: result }] };
+  }
+);
+
+server.registerTool(
+  "mmkv_get_json",
+  {
+    description: "Read a JSON value from the app's MMKV debug hook and parse it before returning it.",
+    inputSchema: MmkvGetJsonSchema.shape,
+  },
+  async (params) => {
+    const result = await mmkvGetJson(params as Parameters<typeof mmkvGetJson>[0]);
+    return { content: [{ type: "text", text: result }] };
+  }
+);
+
+server.registerTool(
+  "mmkv_set_json",
+  {
+    description: "Store any JSON-serializable value in MMKV through the app's debug hook. Safer than manually stringifying payloads in AI prompts.",
+    inputSchema: MmkvSetJsonSchema.shape,
+  },
+  async (params) => {
+    const result = await mmkvSetJson(params as Parameters<typeof mmkvSetJson>[0]);
+    return { content: [{ type: "text", text: result }] };
+  }
+);
+
+server.registerTool(
+  "mmkv_merge_json",
+  {
+    description: "Merge a shallow JSON object into an existing MMKV JSON object. Good for patching persisted debug/config state without replacing the whole blob.",
+    inputSchema: MmkvMergeJsonSchema.shape,
+  },
+  async (params) => {
+    const result = await mmkvMergeJson(params as Parameters<typeof mmkvMergeJson>[0]);
+    return { content: [{ type: "text", text: result }] };
+  }
+);
+
+server.registerTool(
+  "zustand_persist_get",
+  {
+    description: "Read a persisted Zustand entry from MMKV and return its parsed state and version fields separately.",
+    inputSchema: ZustandPersistGetSchema.shape,
+  },
+  async (params) => {
+    const result = await zustandPersistGet(params as Parameters<typeof zustandPersistGet>[0]);
+    return { content: [{ type: "text", text: result }] };
+  }
+);
+
+server.registerTool(
+  "zustand_persist_set",
+  {
+    description: "Write a persisted Zustand payload to MMKV in the canonical { state, version? } shape.",
+    inputSchema: ZustandPersistSetSchema.shape,
+  },
+  async (params) => {
+    const result = await zustandPersistSet(params as Parameters<typeof zustandPersistSet>[0]);
+    return { content: [{ type: "text", text: result }] };
+  }
+);
+
+server.registerTool(
+  "zustand_persist_merge",
+  {
+    description: "Merge fields into the state object of an existing persisted Zustand MMKV entry, preserving version unless you override it.",
+    inputSchema: ZustandPersistMergeSchema.shape,
+  },
+  async (params) => {
+    const result = await zustandPersistMerge(params as Parameters<typeof zustandPersistMerge>[0]);
     return { content: [{ type: "text", text: result }] };
   }
 );

@@ -59,6 +59,69 @@ claude mcp add expo-metro --env METRO_PORT=8082 npx @synnode/expo-metro-mcp
 | `swipe` | Swipe from one coordinate to another. Optional: `duration_ms`, `platform`, `device_id` |
 | `input_text` | Type text into the focused input field — works without the on-screen keyboard. Optional: `platform`, `device_id` |
 | `input_key` | Send a special key press: `enter`, `backspace`, `delete`, `tab`, `escape`, `back`, `space`, arrow keys. Optional: `platform`, `device_id` |
+| `evaluate` | Run JavaScript inside the connected app runtime via Metro CDP. Supports async expressions. Useful for reading state, calling app helpers, poking navigation, or mutating debug state. Optional: `timeout_ms` |
+| `mmkv_get` | Read a raw string value from a dev-only MMKV debug hook exposed at `globalThis.__EXPO_METRO_MCP__.mmkv` |
+| `mmkv_set` | Write a raw string value through that MMKV debug hook |
+| `mmkv_remove` | Remove a key through that MMKV debug hook |
+| `mmkv_keys` | List all keys available through that MMKV debug hook |
+| `mmkv_get_json` | Read and parse a JSON-valued MMKV entry |
+| `mmkv_set_json` | Store any JSON-serializable value in MMKV without manual stringifying |
+| `mmkv_merge_json` | Shallow-merge an object into an existing JSON-valued MMKV entry |
+| `zustand_persist_get` | Read a persisted Zustand MMKV payload and split out `state` and `version` |
+| `zustand_persist_set` | Write a persisted Zustand payload in `{ state, version? }` shape |
+| `zustand_persist_merge` | Merge fields into an existing persisted Zustand `state` object |
+
+## Runtime evaluation
+
+`evaluate` runs JavaScript directly inside the connected React Native app runtime through CDP `Runtime.evaluate`.
+
+**What it's good for:**
+- inspect globals, stores, and navigation state
+- call debug helpers or exported functions
+- read or write app persistence through your app's JS runtime
+- toggle feature flags or temporary state during debugging
+- verify assumptions without rebuilding UI automation flows
+
+**Notes:**
+- Expressions are awaited automatically, so `Promise` results work out of the box
+- Returned values are serialized when possible; non-serializable objects fall back to their runtime description
+- This is a sharp tool. Great for development, mildly cursed in the wrong hands
+
+## MMKV debug hook
+
+If your app uses `react-native-mmkv`, you can expose a tiny dev-only hook and let the MCP seed or inspect persisted state without hand-written eval snippets.
+
+Example app-side hook:
+
+```ts
+import {createMMKV} from "react-native-mmkv";
+
+export const mmkv = createMMKV({
+  id: "synorga-app",
+});
+
+if (__DEV__) {
+  globalThis.__EXPO_METRO_MCP__ = {
+    ...globalThis.__EXPO_METRO_MCP__,
+    mmkv: {
+      id: "synorga-app",
+      getItem: (key: string) => mmkv.getString(key) ?? null,
+      setItem: (key: string, value: string) => mmkv.set(key, value),
+      removeItem: (key: string) => mmkv.remove(key),
+      getAllKeys: () => mmkv.getAllKeys(),
+    },
+  };
+}
+```
+
+Once exposed, the MCP can use:
+- low-level MMKV tools: `mmkv_get`, `mmkv_set`, `mmkv_remove`, `mmkv_keys`
+- JSON helpers: `mmkv_get_json`, `mmkv_set_json`, `mmkv_merge_json`
+- Zustand helpers: `zustand_persist_get`, `zustand_persist_set`, `zustand_persist_merge`
+
+This stays intentionally generic, so it works for persisted Zustand state and plain MMKV usage without coupling the MCP to your store internals.
+
+For most AI-driven state seeding, the Zustand helpers are the sweet spot. They avoid hand-building the persisted wrapper shape every time.
 
 ## Screenshot & UI automation
 
