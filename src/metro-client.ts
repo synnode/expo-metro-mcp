@@ -50,6 +50,17 @@ interface CdpMessage {
   id?: number;
   params?: Record<string, unknown>;
   result?: unknown;
+  error?: {
+    code?: number;
+    message?: string;
+    data?: unknown;
+  };
+}
+
+interface PendingResponse {
+  resolve: (value: CdpMessage) => void;
+  reject: (error: Error) => void;
+  timer: ReturnType<typeof setTimeout>;
 }
 
 function formatArgs(args: Array<{ type?: string; value?: unknown; description?: string }>): string {
@@ -100,6 +111,8 @@ class MetroClient {
   private _stopped = false;
   private _eventsBackoff = INITIAL_BACKOFF_MS;
   private _deviceTitle: string | null = null;
+  private _nextMessageId = 1;
+  private pendingResponses = new Map<number, PendingResponse>();
 
   readonly host = METRO_HOST;
   readonly port = METRO_PORT;
@@ -142,6 +155,7 @@ class MetroClient {
   }
 
   disconnect() {
+    this.rejectPendingResponses(new Error("Disconnected from Metro CDP."));
     if (this.cdpWs) {
       this.cdpWs.terminate();
       this.cdpWs = null;
@@ -184,6 +198,25 @@ class MetroClient {
       return `Connected to ${this._deviceTitle ?? "device"}.`;
     }
     return "No device found. Is Metro running with a connected device?";
+  }
+
+  async evaluate(expression: string, timeoutMs = 5_000): Promise<CdpMessage> {
+    if (!this._connected || !this.cdpWs || this.cdpWs.readyState !== WebSocket.OPEN) {
+      await this.checkForNewTarget();
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+
+    if (!this._connected || !this.cdpWs || this.cdpWs.readyState !== WebSocket.OPEN) {
+      throw new Error("Not connected to Metro CDP. Start Expo, make sure a device is attached, then call connect.");
+    }
+
+    return this.sendCdpCommand("Runtime.evaluate", {
+      expression,
+      awaitPromise: true,
+      returnByValue: true,
+      generatePreview: false,
+      replMode: true,
+    }, timeoutMs);
   }
 
   private addEntry(entry: LogEntry) {
@@ -242,6 +275,16 @@ class MetroClient {
         return;
       }
 
+      if (typeof msg.id === "number") {
+        const pending = this.pendingResponses.get(msg.id);
+        if (pending) {
+          clearTimeout(pending.timer);
+          this.pendingResponses.delete(msg.id);
+          pending.resolve(msg);
+          return;
+        }
+      }
+
       if (msg.method === "Runtime.consoleAPICalled" && msg.params) {
         this.handleConsoleEvent(msg.params);
       }
@@ -249,6 +292,7 @@ class MetroClient {
 
     ws.on("close", () => {
       if (this.cdpWs === ws) {
+        this.rejectPendingResponses(new Error("Metro CDP connection closed."));
         this._connected = false;
         this.cdpWs = null;
         this._currentTargetId = null;
@@ -260,6 +304,38 @@ class MetroClient {
     ws.on("error", () => {
       // Handled by close
     });
+  }
+
+  private sendCdpCommand(method: string, params: Record<string, unknown>, timeoutMs: number): Promise<CdpMessage> {
+    const ws = this.cdpWs;
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      return Promise.reject(new Error("Metro CDP is not connected."));
+    }
+
+    const id = this._nextMessageId++;
+
+    return new Promise<CdpMessage>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.pendingResponses.delete(id);
+        reject(new Error(`CDP command timed out after ${timeoutMs}ms.`));
+      }, timeoutMs);
+
+      this.pendingResponses.set(id, { resolve, reject, timer });
+      ws.send(JSON.stringify({ id, method, params }), (error) => {
+        if (!error) return;
+        clearTimeout(timer);
+        this.pendingResponses.delete(id);
+        reject(error instanceof Error ? error : new Error(String(error)));
+      });
+    });
+  }
+
+  private rejectPendingResponses(error: Error) {
+    for (const [id, pending] of this.pendingResponses.entries()) {
+      clearTimeout(pending.timer);
+      pending.reject(error);
+      this.pendingResponses.delete(id);
+    }
   }
 
   private handleConsoleEvent(params: Record<string, unknown>) {

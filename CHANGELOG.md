@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.6] - 2026-04-24
+
+### Added
+- `mmkv_get_json`, `mmkv_set_json`, and `mmkv_merge_json` helpers for JSON-valued MMKV entries
+- `zustand_persist_get`, `zustand_persist_set`, and `zustand_persist_merge` helpers for seeding and patching persisted Zustand state in the usual `{ state, version? }` shape
+
+## [1.0.5] - 2026-04-24
+
+### Added
+- `mmkv_get`, `mmkv_set`, `mmkv_remove`, and `mmkv_keys` tools for apps that expose a dev-only MMKV debug hook at `globalThis.__EXPO_METRO_MCP__.mmkv`
+
+## [1.0.4] - 2026-04-24
+
+### Added
+- `evaluate` — run JavaScript directly inside the connected React Native runtime via Metro CDP `Runtime.evaluate`, with async support and formatted return values/errors
+
 ## [1.0.3] - 2026-04-15
 
 ### Added
