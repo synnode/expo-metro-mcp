@@ -40,7 +40,7 @@ import {
 
 const server = new McpServer({
   name: "expo-metro-mcp",
-  version: "1.0.6",
+  version: "1.0.7",
 });
 
 server.registerTool(

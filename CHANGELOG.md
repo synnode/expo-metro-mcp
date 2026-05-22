@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [1.0.7] - 2026-05-22
 
 ### Added
 - `EXPO_METRO_MCP_READ_ONLY=1` to disable MMKV/Zustand write helpers at the server layer
