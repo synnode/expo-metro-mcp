@@ -95,9 +95,12 @@ Use this skill when working on a React Native / Expo project that has a running 
 
 The MCP holds a CDP WebSocket connection to Metro. React Native DevTools uses the same connection — only one client can hold it at a time.
 
+**Important agent behavior:** if a tool that needs CDP reports that the MCP is disconnected, the agent should try `connect` itself before giving up or asking the user. In practice, disconnection often just means DevTools had the socket last.
+
 - If DevTools is open and the MCP shows disconnected: call `connect` to take over
 - Before opening DevTools: call `disconnect` to release the connection
-- The MCP reconnects automatically when Metro restarts or the device reconnects
+- If a runtime tool fails because CDP is not attached, retry after `connect`
+- The MCP reconnects automatically when Metro restarts or the device reconnects, but explicit `connect` is still the fastest recovery path when DevTools was using the socket
 
 ## Tips
 

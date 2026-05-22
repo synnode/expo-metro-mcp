@@ -170,8 +170,11 @@ For most AI-driven state seeding, the Zustand helpers are the sweet spot. They a
 
 CDP only allows one client at a time. Switching between the MCP and DevTools is seamless — whichever connects last takes over, and the other is kicked out automatically.
 
+Important practical note for agents: if a CDP-backed tool needs the runtime and `get_status` shows disconnected, the agent should try `connect` itself before asking the user to do anything. In many sessions, the MCP is only disconnected because DevTools had the socket last.
+
 - **To use DevTools**: just open or reconnect it. The MCP will be disconnected automatically.
 - **To return to MCP**: call `connect`. DevTools will lose its connection.
+- **If a runtime tool fails due to no CDP connection**: retry after `connect`.
 
 `disconnect` is available if you want to explicitly release the connection first, but it's not required.
 
