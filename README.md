@@ -115,14 +115,14 @@ Example app-side hook:
 import {createMMKV} from "react-native-mmkv";
 
 export const mmkv = createMMKV({
-  id: "synorga-app",
+  id: "demo-app",
 });
 
 if (__DEV__) {
   globalThis.__EXPO_METRO_MCP__ = {
     ...globalThis.__EXPO_METRO_MCP__,
     mmkv: {
-      id: "synorga-app",
+      id: "demo-app",
       getItem: (key: string) => mmkv.getString(key) ?? null,
       setItem: (key: string, value: string) => mmkv.set(key, value),
       removeItem: (key: string) => mmkv.remove(key),
