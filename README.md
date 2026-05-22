@@ -71,7 +71,7 @@ claude mcp add expo-metro --env METRO_PORT=8082 npx @synnode/expo-metro-mcp
 | `resolve_stack` | Resolve a stack trace against the Metro source map, showing original file/line instead of bundle offsets |
 | `list_devices` | List active iOS simulators and Android emulators |
 | `screenshot` | Take a screenshot of the active simulator/emulator. Returns the image + pixel dimensions. Optional: `platform`, `device_id` |
-| `tap` | Tap at x,y coordinates on the active simulator/emulator. Optional: `platform`, `device_id` |
+| `tap` | Tap at x,y coordinates on the active simulator/emulator. Optional: `platform`, `device_id`, `expected_package` (Android only — surfaces an error when an ANR dialog is focused and a warning when focus is on a different window or coords fall outside the focused frame) |
 | `swipe` | Swipe from one coordinate to another. Optional: `duration_ms`, `platform`, `device_id` |
 | `input_text` | Type text into the focused input field — works without the on-screen keyboard. Optional: `platform`, `device_id` |
 | `input_key` | Send a special key press: `enter`, `backspace`, `delete`, `tab`, `escape`, `back`, `space`, arrow keys. Optional: `platform`, `device_id` |
@@ -165,6 +165,7 @@ For most AI-driven state seeding, the Zustand helpers are the sweet spot. They a
 - To fill a form: `tap` the field → `input_text` the value → `input_key "enter"` to submit
 - If multiple devices are running, use `list_devices` to find the ID and pass it via `device_id`
 - iOS screenshots work without idb — only tap/swipe/input require it
+- On Android, `tap` runs a focus pre-flight using `dumpsys window`. If a system ANR dialog has focus, the tap is blocked with recovery instructions (`adb shell input tap` would otherwise silently route the event to the dialog instead of your app). Pass `expected_package` to also catch stale Activity instances or other apps grabbing focus.
 
 ## Using alongside React Native DevTools
 

@@ -24,7 +24,7 @@ Use this skill when working on a React Native / Expo project that has a running 
 | `disconnect` | Release CDP so React Native DevTools can connect |
 | `list_devices` | List active iOS simulators and Android emulators |
 | `screenshot` | Capture current screen as image; response includes exact pixel dimensions for tap/swipe |
-| `tap` | Tap at x,y coordinates |
+| `tap` | Tap at x,y coordinates. On Android, pass `expected_package` to detect ANR dialogs / stale focus that would silently swallow the tap |
 | `swipe` | Swipe between two coordinates (scroll, dismiss sheets, etc.) |
 | `input_text` | Type text into the focused input field — works without the on-screen keyboard |
 | `input_key` | Send a special key: `enter`, `backspace`, `delete`, `tab`, `escape`, `back`, `space`, arrow keys |
@@ -90,6 +90,19 @@ Use this skill when working on a React Native / Expo project that has a running 
 - Screenshots are captured via `adb screencap` at native resolution; pixel dimensions are included in the response
 - Tap, swipe, input_text, and input_key use `adb shell input` — no extra tooling required
 - Works on both emulators and (if adb-connected) physical devices
+- `tap` runs a pre-flight focus check via `dumpsys window`:
+  - If a system **ANR dialog** ("Application Not Responding") has focus, the tap is **blocked** and the response includes recovery commands. `adb shell input tap` would otherwise silently route the event to the dialog instead of your app.
+  - If `expected_package` is provided and the focused window belongs to a different package, the response includes a warning (the tap is still sent).
+  - If the tap coordinates fall outside the focused window's frame, the response includes a warning. Degenerate `0×0` frames from system overlays are ignored to avoid false positives.
+
+### When a tap "succeeds" but nothing happens
+
+This usually means the focused window on the device is not your app. The most common causes:
+- An ANR dialog from an earlier crash is still open (often invisible if the app was backgrounded)
+- Multiple stale `MainActivity` instances accumulated from Fast Refresh / dev menu reloads, and focus is on a hidden one
+- A system permission prompt, OS update banner, or notification shade is on top
+
+Pass `expected_package` (e.g. `"com.yourcompany.yourapp"`) to `tap` to surface this immediately rather than debugging coords/scaling. If the tool returns an ANR-blocked error, follow the recovery commands it suggests; a full `adb reboot` is the cleanest fix when stale Activity tasks have accumulated.
 
 ## Connection management
 

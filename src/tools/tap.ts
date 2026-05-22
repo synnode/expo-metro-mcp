@@ -2,12 +2,19 @@ import { z } from "zod";
 import { execSync } from "child_process";
 import { listAllDevices, pickDevice } from "./devices.js";
 import { ensureIdbCompanion } from "./idb-companion.js";
+import { getAndroidFocusedWindow } from "./focus.js";
 
 export const TapSchema = z.object({
   x: z.number().int().describe("X coordinate in points/pixels"),
   y: z.number().int().describe("Y coordinate in points/pixels"),
   device_id: z.string().optional(),
   platform: z.enum(["ios", "android"]).optional(),
+  expected_package: z
+    .string()
+    .optional()
+    .describe(
+      "Android only — package name that should currently have focus (e.g. 'net.synnode.nullshift'). If set, a warning is returned when focus is on a different window. Use this to detect ANR dialogs, permission prompts, or stale Activity instances silently swallowing taps."
+    ),
 });
 
 export const SwipeSchema = z.object({
@@ -60,11 +67,52 @@ function tapIOS(deviceId: string, x: number, y: number): void {
   );
 }
 
-function tapAndroid(deviceId: string, x: number, y: number): void {
+interface AndroidTapResult {
+  warnings: string[];
+}
+
+function tapAndroid(
+  deviceId: string,
+  x: number,
+  y: number,
+  expectedPackage?: string,
+): AndroidTapResult {
+  const warnings: string[] = [];
+  const focus = getAndroidFocusedWindow(deviceId);
+
+  if (focus?.isAnrDialog) {
+    throw new Error(
+      `Tap blocked: an ANR ('Application Not Responding') system dialog has focus on this device ('${focus.displayName}'). ` +
+        `Synthetic taps via 'adb input tap' route to the focused window, so this tap would never reach your app. ` +
+        `Resolve via: 'adb shell am force-stop ${expectedPackage ?? "<your-package>"}' followed by 'adb reboot', or 'adb shell pm clear ${expectedPackage ?? "<your-package>"}' (destroys app data).`,
+    );
+  }
+
+  if (focus && expectedPackage && focus.package !== expectedPackage) {
+    warnings.push(
+      `Focused window is '${focus.displayName}', not '${expectedPackage}'. The tap may not reach your app — common causes: system dialog on top, stale Activity instance focused, or a different app in the foreground.`,
+    );
+  }
+
+  // Frame check — skip when the focused window has a degenerate frame
+  // (system overlays like NotificationShade often report 0x0 mFrame while
+  // their real touchable region is defined separately) to avoid false positives.
+  if (focus?.frame) {
+    const { x1, y1, x2, y2 } = focus.frame;
+    const hasArea = x2 > x1 && y2 > y1;
+    if (hasArea && (x < x1 || x > x2 || y < y1 || y > y2)) {
+      warnings.push(
+        `Tap coordinates (${x}, ${y}) fall outside the focused window's frame [${x1},${y1}]-[${x2},${y2}]. The event may not be dispatched to '${focus.displayName}'.`,
+      );
+    }
+  }
+
   execSync(`adb -s "${deviceId}" shell input tap ${x} ${y}`, {
     timeout: 5_000,
     stdio: ["ignore", "ignore", "pipe"],
   });
+
+  return { warnings };
 }
 
 function swipeIOS(deviceId: string, x1: number, y1: number, x2: number, y2: number, durationMs: number): void {
@@ -106,10 +154,15 @@ export function tap(params: z.infer<typeof TapSchema>): string {
   try {
     if (device.platform === "ios") {
       tapIOS(device.id, params.x, params.y);
-    } else {
-      tapAndroid(device.id, params.x, params.y);
+      return `Tapped (${params.x}, ${params.y}) on ${device.name} [ios].`;
     }
-    return `Tapped (${params.x}, ${params.y}) on ${device.name} [${device.platform}].`;
+
+    const { warnings } = tapAndroid(device.id, params.x, params.y, params.expected_package);
+    let message = `Tapped (${params.x}, ${params.y}) on ${device.name} [android].`;
+    if (warnings.length) {
+      message += `\n\nWarnings:\n- ${warnings.join("\n- ")}`;
+    }
+    return message;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     return `Tap failed: ${msg}`;
