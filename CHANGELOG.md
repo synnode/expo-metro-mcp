@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.8] - 2026-05-22
+
+### Added
+- Android `tap` now runs a pre-flight focus check via `dumpsys window`:
+  - Blocks the tap with an explicit error and recovery commands when a system ANR ("Application Not Responding") dialog has focus — `adb shell input tap` would otherwise silently route the event to the dialog
+  - New optional `expected_package` parameter; emits a warning when the focused window belongs to a different package (e.g. stale Activity instance, OS prompt, or another app on top)
+  - Warns when tap coordinates fall outside the focused window's frame (skipping degenerate `0×0` overlay frames to avoid false positives)
+
 ## [1.0.7] - 2026-05-22
 
 ### Added
