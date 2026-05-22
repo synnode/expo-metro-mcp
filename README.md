@@ -32,6 +32,22 @@ Restart Claude Code after adding the server.
 METRO_PORT=8081
 METRO_HOST=localhost
 LOG_BUFFER_SIZE=1000
+EXPO_METRO_MCP_ENABLE_EVAL=0
+# optional, comma-separated key prefixes
+EXPO_METRO_MCP_MMKV_PREFIX_ALLOWLIST=
+```
+
+Additional safety toggles:
+
+```bash
+# do not register the raw Runtime.evaluate tool unless you opt in
+EXPO_METRO_MCP_ENABLE_EVAL=1
+
+# disable MMKV / Zustand write helpers
+EXPO_METRO_MCP_READ_ONLY=1
+
+# only allow specific MMKV key prefixes (applies to reads and writes)
+EXPO_METRO_MCP_MMKV_PREFIX_ALLOWLIST=debug.,persist:dev:
 ```
 
 If Metro runs on a different port:
@@ -59,7 +75,7 @@ claude mcp add expo-metro --env METRO_PORT=8082 npx @synnode/expo-metro-mcp
 | `swipe` | Swipe from one coordinate to another. Optional: `duration_ms`, `platform`, `device_id` |
 | `input_text` | Type text into the focused input field — works without the on-screen keyboard. Optional: `platform`, `device_id` |
 | `input_key` | Send a special key press: `enter`, `backspace`, `delete`, `tab`, `escape`, `back`, `space`, arrow keys. Optional: `platform`, `device_id` |
-| `evaluate` | Run JavaScript inside the connected app runtime via Metro CDP. Supports async expressions. Useful for reading state, calling app helpers, poking navigation, or mutating debug state. Optional: `timeout_ms` |
+| `evaluate` | Run JavaScript inside the connected app runtime via Metro CDP. **Only registered when `EXPO_METRO_MCP_ENABLE_EVAL=1`.** Supports async expressions. Useful for reading state, calling app helpers, poking navigation, or mutating debug state. Optional: `timeout_ms` |
 | `mmkv_get` | Read a raw string value from a dev-only MMKV debug hook exposed at `globalThis.__EXPO_METRO_MCP__.mmkv` |
 | `mmkv_set` | Write a raw string value through that MMKV debug hook |
 | `mmkv_remove` | Remove a key through that MMKV debug hook |
@@ -86,6 +102,8 @@ claude mcp add expo-metro --env METRO_PORT=8082 npx @synnode/expo-metro-mcp
 - Expressions are awaited automatically, so `Promise` results work out of the box
 - Returned values are serialized when possible; non-serializable objects fall back to their runtime description
 - This is a sharp tool. Great for development, mildly cursed in the wrong hands
+- The MCP does **not** sandbox eval internally; treat this as arbitrary code execution in the app runtime
+- To hide the tool entirely unless you explicitly want it, leave `EXPO_METRO_MCP_ENABLE_EVAL` unset
 
 ## MMKV debug hook
 
@@ -97,14 +115,14 @@ Example app-side hook:
 import {createMMKV} from "react-native-mmkv";
 
 export const mmkv = createMMKV({
-  id: "synorga-app",
+  id: "demo-app",
 });
 
 if (__DEV__) {
   globalThis.__EXPO_METRO_MCP__ = {
     ...globalThis.__EXPO_METRO_MCP__,
     mmkv: {
-      id: "synorga-app",
+      id: "demo-app",
       getItem: (key: string) => mmkv.getString(key) ?? null,
       setItem: (key: string, value: string) => mmkv.set(key, value),
       removeItem: (key: string) => mmkv.remove(key),
@@ -118,6 +136,11 @@ Once exposed, the MCP can use:
 - low-level MMKV tools: `mmkv_get`, `mmkv_set`, `mmkv_remove`, `mmkv_keys`
 - JSON helpers: `mmkv_get_json`, `mmkv_set_json`, `mmkv_merge_json`
 - Zustand helpers: `zustand_persist_get`, `zustand_persist_set`, `zustand_persist_merge`
+
+Safety notes:
+- `EXPO_METRO_MCP_READ_ONLY=1` disables all MMKV/Zustand write helpers
+- `EXPO_METRO_MCP_MMKV_PREFIX_ALLOWLIST` limits MMKV/Zustand access to specific key prefixes
+- `mmkv_keys` returns only allowed keys when a prefix allowlist is configured
 
 This stays intentionally generic, so it works for persisted Zustand state and plain MMKV usage without coupling the MCP to your store internals.
 
@@ -147,8 +170,11 @@ For most AI-driven state seeding, the Zustand helpers are the sweet spot. They a
 
 CDP only allows one client at a time. Switching between the MCP and DevTools is seamless — whichever connects last takes over, and the other is kicked out automatically.
 
+Important practical note for agents: if a CDP-backed tool needs the runtime and `get_status` shows disconnected, the agent should try `connect` itself before asking the user to do anything. In many sessions, the MCP is only disconnected because DevTools had the socket last.
+
 - **To use DevTools**: just open or reconnect it. The MCP will be disconnected automatically.
 - **To return to MCP**: call `connect`. DevTools will lose its connection.
+- **If a runtime tool fails due to no CDP connection**: retry after `connect`.
 
 `disconnect` is available if you want to explicitly release the connection first, but it's not required.
 

@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- `EXPO_METRO_MCP_READ_ONLY=1` to disable MMKV/Zustand write helpers at the server layer
+- `EXPO_METRO_MCP_MMKV_PREFIX_ALLOWLIST` to constrain MMKV/Zustand access to explicit key prefixes
+
+### Changed
+- `evaluate` is now registered only when `EXPO_METRO_MCP_ENABLE_EVAL=1` is set
+- `mmkv_keys` now filters results through the MMKV prefix allowlist when configured
+
 ## [1.0.6] - 2026-04-24
 
 ### Added

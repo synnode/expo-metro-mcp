@@ -14,6 +14,7 @@ import { TapSchema, SwipeSchema, tap, swipe } from "./tools/tap.js";
 import { InputTextSchema, InputKeySchema, inputText, inputKey } from "./tools/input.js";
 import { listDevices } from "./tools/list-devices.js";
 import { EvaluateSchema, evaluate } from "./tools/evaluate.js";
+import { safetyConfig } from "./safety.js";
 import {
   MmkvGetJsonSchema,
   MmkvGetSchema,
@@ -228,17 +229,19 @@ server.registerTool(
   }
 );
 
-server.registerTool(
-  "evaluate",
-  {
-    description: "Run JavaScript inside the connected React Native app runtime via Metro CDP. Supports async expressions, so you can inspect globals, read or mutate state, trigger navigation, or call app helpers directly.",
-    inputSchema: EvaluateSchema.shape,
-  },
-  async (params) => {
-    const result = await evaluate(params as Parameters<typeof evaluate>[0]);
-    return { content: [{ type: "text", text: result }] };
-  }
-);
+if (safetyConfig.enableEval) {
+  server.registerTool(
+    "evaluate",
+    {
+      description: "Run JavaScript inside the connected React Native app runtime via Metro CDP. Supports async expressions, so you can inspect globals, read or mutate state, trigger navigation, or call app helpers directly.",
+      inputSchema: EvaluateSchema.shape,
+    },
+    async (params) => {
+      const result = await evaluate(params as Parameters<typeof evaluate>[0]);
+      return { content: [{ type: "text", text: result }] };
+    }
+  );
+}
 
 server.registerTool(
   "mmkv_get",
