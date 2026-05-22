@@ -1,5 +1,10 @@
 import { z } from "zod";
 import { metroClient } from "../metro-client.js";
+import {
+  assertMmkvKeyAllowed,
+  assertWritesAllowed,
+  filterAllowedMmkvKeys,
+} from "../safety.js";
 
 const MMKV_ROOT = "globalThis.__EXPO_METRO_MCP__?.mmkv";
 
@@ -124,11 +129,14 @@ function parseStoredJson(raw: string | null): unknown {
 }
 
 export async function mmkvGet(params: z.infer<typeof MmkvGetSchema>): Promise<string> {
+  assertMmkvKeyAllowed(params.key);
   const value = await evaluateJson(mmkvBootstrapExpression(`() => ({ key: ${escapeForJs(params.key)}, value: mmkv.getItem(${escapeForJs(params.key)}) ?? null })`), params.timeout_ms);
   return formatJson(value);
 }
 
 export async function mmkvSet(params: z.infer<typeof MmkvSetSchema>): Promise<string> {
+  assertWritesAllowed("mmkv_set");
+  assertMmkvKeyAllowed(params.key);
   const value = await evaluateJson(mmkvBootstrapExpression(`() => {
     mmkv.setItem(${escapeForJs(params.key)}, ${escapeForJs(params.value)});
     return { ok: true, key: ${escapeForJs(params.key)}, value: mmkv.getItem(${escapeForJs(params.key)}) ?? null };
@@ -137,6 +145,8 @@ export async function mmkvSet(params: z.infer<typeof MmkvSetSchema>): Promise<st
 }
 
 export async function mmkvRemove(params: z.infer<typeof MmkvRemoveSchema>): Promise<string> {
+  assertWritesAllowed("mmkv_remove");
+  assertMmkvKeyAllowed(params.key);
   const value = await evaluateJson(mmkvBootstrapExpression(`() => {
     mmkv.removeItem(${escapeForJs(params.key)});
     return { ok: true, key: ${escapeForJs(params.key)} };
@@ -146,16 +156,22 @@ export async function mmkvRemove(params: z.infer<typeof MmkvRemoveSchema>): Prom
 
 export async function mmkvKeys(params: z.infer<typeof MmkvKeysSchema>): Promise<string> {
   const value = await evaluateJson(mmkvBootstrapExpression(`() => ({ keys: mmkv.getAllKeys() })`), params.timeout_ms);
-  return formatJson(value);
+  const payload = value && typeof value === "object" && !Array.isArray(value)
+    ? value as { keys?: string[] }
+    : {};
+  return formatJson({ keys: filterAllowedMmkvKeys(Array.isArray(payload.keys) ? payload.keys : []) });
 }
 
 export async function mmkvGetJson(params: z.infer<typeof MmkvGetJsonSchema>): Promise<string> {
+  assertMmkvKeyAllowed(params.key);
   const raw = await evaluateJson(mmkvBootstrapExpression(`() => mmkv.getItem(${escapeForJs(params.key)}) ?? null`), params.timeout_ms) as string | null;
   const parsed = parseStoredJson(raw);
   return formatJson({ key: params.key, value: parsed });
 }
 
 export async function mmkvSetJson(params: z.infer<typeof MmkvSetJsonSchema>): Promise<string> {
+  assertWritesAllowed("mmkv_set_json");
+  assertMmkvKeyAllowed(params.key);
   const encoded = JSON.stringify(params.value);
   const value = await evaluateJson(mmkvBootstrapExpression(`() => {
     mmkv.setItem(${escapeForJs(params.key)}, ${escapeForJs(encoded)});
@@ -165,6 +181,8 @@ export async function mmkvSetJson(params: z.infer<typeof MmkvSetJsonSchema>): Pr
 }
 
 export async function mmkvMergeJson(params: z.infer<typeof MmkvMergeJsonSchema>): Promise<string> {
+  assertWritesAllowed("mmkv_merge_json");
+  assertMmkvKeyAllowed(params.key);
   const existingRaw = await evaluateJson(mmkvBootstrapExpression(`() => mmkv.getItem(${escapeForJs(params.key)}) ?? null`), params.timeout_ms) as string | null;
   const existing = existingRaw == null ? {} : parseStoredJson(existingRaw);
 
@@ -177,6 +195,7 @@ export async function mmkvMergeJson(params: z.infer<typeof MmkvMergeJsonSchema>)
 }
 
 export async function zustandPersistGet(params: z.infer<typeof ZustandPersistGetSchema>): Promise<string> {
+  assertMmkvKeyAllowed(params.key);
   const raw = await evaluateJson(mmkvBootstrapExpression(`() => mmkv.getItem(${escapeForJs(params.key)}) ?? null`), params.timeout_ms) as string | null;
   const parsed = parseStoredJson(raw) as { state?: unknown; version?: unknown } | null;
   return formatJson({
@@ -188,6 +207,8 @@ export async function zustandPersistGet(params: z.infer<typeof ZustandPersistGet
 }
 
 export async function zustandPersistSet(params: z.infer<typeof ZustandPersistSetSchema>): Promise<string> {
+  assertWritesAllowed("zustand_persist_set");
+  assertMmkvKeyAllowed(params.key);
   const payload = {
     state: params.state,
     ...(params.version !== undefined ? { version: params.version } : {}),
@@ -196,6 +217,8 @@ export async function zustandPersistSet(params: z.infer<typeof ZustandPersistSet
 }
 
 export async function zustandPersistMerge(params: z.infer<typeof ZustandPersistMergeSchema>): Promise<string> {
+  assertWritesAllowed("zustand_persist_merge");
+  assertMmkvKeyAllowed(params.key);
   const raw = await evaluateJson(mmkvBootstrapExpression(`() => mmkv.getItem(${escapeForJs(params.key)}) ?? null`), params.timeout_ms) as string | null;
   const parsed = raw == null ? null : parseStoredJson(raw) as { state?: unknown; version?: unknown } | null;
   const existingState = parsed?.state;
