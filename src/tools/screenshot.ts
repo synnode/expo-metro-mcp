@@ -4,6 +4,8 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import { listAllDevices, pickDevice } from "./devices.js";
+import { getAndroidScale } from "./density.js";
+import { downscalePng } from "./png.js";
 
 export const ScreenshotSchema = z.object({
   device_id: z.string().optional(),
@@ -106,6 +108,20 @@ function captureAndroid(deviceId: string, outputPath: string): void {
     timeout: 5_000,
     stdio: "ignore",
   });
+
+  // Downscale pixels → density-independent pixels (dp) so the returned image
+  // matches the coordinate space tap/swipe operate in (see density.ts). This
+  // mirrors captureIOS's `sips -z` step. On any failure we keep the original
+  // full-resolution PNG rather than returning nothing.
+  const scale = getAndroidScale(deviceId);
+  if (scale > 1) {
+    try {
+      const resized = downscalePng(fs.readFileSync(outputPath), scale);
+      if (resized) fs.writeFileSync(outputPath, resized);
+    } catch {
+      // keep the original PNG at pixel resolution
+    }
+  }
 }
 
 function getPngDimensions(buffer: Buffer): { width: number; height: number } | null {

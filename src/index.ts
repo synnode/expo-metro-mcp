@@ -178,7 +178,7 @@ server.registerTool(
     const result = screenshot(params as Parameters<typeof screenshot>[0]);
     if (result.type === "image") {
       const dimNote = result.width && result.height
-        ? `Screenshot dimensions: ${result.width}x${result.height}px. Use these exact coordinates for tap and swipe — no scaling needed.`
+        ? `This image is ${result.width}x${result.height}, and that is exactly the coordinate space tap and swipe use. Read positions straight off this image and pass them to tap/swipe unchanged. If your client shows a downscaled preview and annotates a scale factor, rescale any position you read off the preview back into this ${result.width}x${result.height} space first.`
         : "Screenshot dimensions unknown.";
       return {
         content: [

@@ -3,10 +3,11 @@ import { execSync } from "child_process";
 import { listAllDevices, pickDevice } from "./devices.js";
 import { ensureIdbCompanion } from "./idb-companion.js";
 import { getAndroidFocusedWindow } from "./focus.js";
+import { getAndroidScale } from "./density.js";
 
 export const TapSchema = z.object({
-  x: z.number().int().describe("X coordinate in points/pixels"),
-  y: z.number().int().describe("Y coordinate in points/pixels"),
+  x: z.number().int().describe("X coordinate in the screenshot tool's returned width/height space (dp on Android, points on iOS) — use the coordinates you read off the screenshot directly, no scaling"),
+  y: z.number().int().describe("Y coordinate in the screenshot tool's returned width/height space (dp on Android, points on iOS) — use the coordinates you read off the screenshot directly, no scaling"),
   device_id: z.string().optional(),
   platform: z.enum(["ios", "android"]).optional(),
   expected_package: z
@@ -18,10 +19,10 @@ export const TapSchema = z.object({
 });
 
 export const SwipeSchema = z.object({
-  x1: z.number().int(),
-  y1: z.number().int(),
-  x2: z.number().int(),
-  y2: z.number().int(),
+  x1: z.number().int().describe("Start X in the screenshot's returned width/height space (dp on Android, points on iOS)"),
+  y1: z.number().int().describe("Start Y in the screenshot's returned width/height space (dp on Android, points on iOS)"),
+  x2: z.number().int().describe("End X in the screenshot's returned width/height space (dp on Android, points on iOS)"),
+  y2: z.number().int().describe("End Y in the screenshot's returned width/height space (dp on Android, points on iOS)"),
   duration_ms: z.number().int().min(50).max(5000).optional().default(300),
   device_id: z.string().optional(),
   platform: z.enum(["ios", "android"]).optional(),
@@ -78,6 +79,14 @@ function tapAndroid(
   expectedPackage?: string,
 ): AndroidTapResult {
   const warnings: string[] = [];
+
+  // Incoming coordinates are in dp (the screenshot's returned space). `adb input
+  // tap` and the window frame from dumpsys are in physical pixels, so scale up
+  // and do the whole comparison in pixel space. See density.ts.
+  const scale = getAndroidScale(deviceId);
+  const px = Math.round(x * scale);
+  const py = Math.round(y * scale);
+
   const focus = getAndroidFocusedWindow(deviceId);
 
   if (focus?.isAnrDialog) {
@@ -100,14 +109,14 @@ function tapAndroid(
   if (focus?.frame) {
     const { x1, y1, x2, y2 } = focus.frame;
     const hasArea = x2 > x1 && y2 > y1;
-    if (hasArea && (x < x1 || x > x2 || y < y1 || y > y2)) {
+    if (hasArea && (px < x1 || px > x2 || py < y1 || py > y2)) {
       warnings.push(
-        `Tap coordinates (${x}, ${y}) fall outside the focused window's frame [${x1},${y1}]-[${x2},${y2}]. The event may not be dispatched to '${focus.displayName}'.`,
+        `Tap coordinates (${px}, ${py})px fall outside the focused window's frame [${x1},${y1}]-[${x2},${y2}] (pixel space). The event may not be dispatched to '${focus.displayName}'.`,
       );
     }
   }
 
-  execSync(`adb -s "${deviceId}" shell input tap ${x} ${y}`, {
+  execSync(`adb -s "${deviceId}" shell input tap ${px} ${py}`, {
     timeout: 5_000,
     stdio: ["ignore", "ignore", "pipe"],
   });
@@ -137,7 +146,10 @@ function swipeIOS(deviceId: string, x1: number, y1: number, x2: number, y2: numb
 }
 
 function swipeAndroid(deviceId: string, x1: number, y1: number, x2: number, y2: number, durationMs: number): void {
-  execSync(`adb -s "${deviceId}" shell input swipe ${x1} ${y1} ${x2} ${y2} ${durationMs}`, {
+  // Coordinates arrive in dp; `adb input swipe` wants physical pixels. See density.ts.
+  const scale = getAndroidScale(deviceId);
+  const s = (n: number) => Math.round(n * scale);
+  execSync(`adb -s "${deviceId}" shell input swipe ${s(x1)} ${s(y1)} ${s(x2)} ${s(y2)} ${durationMs}`, {
     timeout: 10_000,
     stdio: ["ignore", "ignore", "pipe"],
   });
