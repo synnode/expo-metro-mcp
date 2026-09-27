@@ -2,7 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.1.1] - 2026-08-19
+## [1.2.0] - 2026-09-27
+
+### Fixed
+- `screenshot`/`tap`/`swipe` (Android): coordinates silently landed on the wrong element on high-density devices. Android returned the screenshot at full physical resolution (e.g. Pixel 9 Pro `1280×2856`) while tapping in that same pixel space — internally consistent, but the host downscales a wide image before the vision model sees it, so positions read off the smaller preview were passed straight to `tap` and landed off by the density factor (~1.43× on a 3× device). Android now mirrors the iOS points path: the screenshot is downscaled to density-independent pixels (dp, `density_dpi/160`, e.g. `~427×952`) and `tap`/`swipe` scale incoming dp coordinates back up to pixels by the same factor, so the image the model sees and the coordinate space it types in are the same. The `tap` focus-frame check now compares in pixel space (where `dumpsys window`'s frame lives). PNG downscaling is done in-process via a dependency-free `zlib`-based codec, so no native image dependency or external tool is required. iOS is unchanged.
 
 ### Fixed
 - SQLite tools returned empty results (`{ rowCount: 0, rows: [] }`) for every query, and swallowed errors from guaranteed-invalid SQL. The Metro/fusebox CDP inspector does not honor `Runtime.evaluate`'s `awaitPromise`: a promise that settles on a later tick is serialized as an empty object and rejections are lost. Since SQLite access is genuinely async (native callbacks) — unlike the synchronous MMKV hook — awaiting inside the eval never worked. The tools now drive the hook with synchronous evals only: one eval starts the operation and stashes its outcome on a global slot, then the MCP polls that slot until it settles (with a timeout and cleanup). `Promise.resolve()` wrapping makes this transparent for both sync (`getAllSync`/`runSync`) and async (`getAllAsync`/`runAsync`) hooks.
